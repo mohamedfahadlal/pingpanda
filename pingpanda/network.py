@@ -36,7 +36,7 @@ def resolve_ip_and_port(url):
 def normalize_url(url):
     url = url.strip()
     if "://" not in url:
-        url = "http://" + url
+        url = "https://" + url
     return url
 
 

@@ -34,7 +34,6 @@ async def test_connection_error_is_reported_as_invalid(checker):
     assert result.status_label == "Invalid"
 
 
-@pytest.mark.xfail(strict=True, reason=KNOWN_DEFECT)
 async def test_url_without_scheme_is_checked_over_https(checker, fake_dns):
     seen = {}
 
