@@ -96,7 +96,6 @@ async def test_redirect_loop_is_reported_as_invalid(checker, local_server, fake_
     assert result.status is None
 
 
-@pytest.mark.xfail(strict=True, reason=KNOWN_DEFECT)
 async def test_slow_server_times_out(checker, local_server, fake_dns, monkeypatch):
     monkeypatch.setattr(checker.network, "DEFAULT_TIMEOUT_SECONDS", 0.3)
 
@@ -108,4 +107,50 @@ async def test_slow_server_times_out(checker, local_server, fake_dns, monkeypatc
         duration = time.perf_counter() - started
 
     assert duration < 1.0, "the request was not cut short by the timeout"
+    assert result.status is None
+
+async def test_silent_server_times_out(checker, local_server, fake_dns, monkeypatch):
+    monkeypatch.setattr(checker.network, "DEFAULT_TIMEOUT_SECONDS", 0.3)
+
+    async with httpx.AsyncClient() as session:
+        started = time.perf_counter()
+
+        result = await asyncio.wait_for(
+            checker.check_url_status(session, 0,f"{local_server}/silent"),timeout=2.0,
+        )
+
+        duration = time.perf_counter() - started
+
+    assert duration < 1.0
+    assert result.status is None
+
+async def test_trickling_server_times_out(checker, local_server, fake_dns, monkeypatch):
+    monkeypatch.setattr(checker.network, "DEFAULT_TIMEOUT_SECONDS", 0.35)
+
+    async with httpx.AsyncClient() as session:
+        started = time.perf_counter()
+
+        result = await asyncio.wait_for(
+            checker.check_url_status(session, 0, f"{local_server}/trickle"),timeout=2.5,
+        )
+
+        duration = time.perf_counter() - started
+
+    assert duration < 0.8, "the overall timeout was not enforced"
+    assert result.status is None
+
+async def test_redirect_chain_respects_overall_timeout(
+        checker, local_server, fake_dns, monkeypatch
+):
+    monkeypatch.setattr(checker.network, "DEFAULT_TIMEOUT_SECONDS", 0.35)
+    async with httpx.AsyncClient() as session:
+        started = time.perf_counter()
+
+        result = await asyncio.wait_for(
+            checker.check_url_status(session, 0, f"{local_server}/redirect-chain/0"),timeout=2.5,
+        )
+
+        duration = time.perf_counter() - started
+
+    assert duration < 0.8, "the redirect chain exceeded the overall timeout"
     assert result.status is None

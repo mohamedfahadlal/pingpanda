@@ -87,11 +87,18 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _send(self, code, body=b"ok", headers=None):
         self.send_response(code)
+
         for key, value in (headers or {}).items():
             self.send_header(key, value)
+
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+
+        try:
+            self.wfile.write(body)
+            self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
 
     def do_GET(self):
         path = self.path.split("?")[0]
@@ -101,6 +108,13 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(404)
         elif path.startswith("/boom"):
             self._send(500)
+        elif path.startswith("/redirect-chain/"):
+            time.sleep(0.2)
+            hop = int(path.rsplit("/", 1)[-1])
+            if hop < 5:
+                self._send(302,headers={"Location": f"/redirect-chain/{hop + 1}"},)
+            else:
+                self._send(200)
         elif path.startswith("/redirect"):
             self._send(302, headers={"Location": "/ok"})
         elif path.startswith("/loop"):
@@ -108,6 +122,27 @@ class _Handler(BaseHTTPRequestHandler):
         elif path.startswith("/slow"):
             time.sleep(1.5)
             self._send(200)
+        elif path.startswith("/trickle"):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            try:
+                for i in range(10):
+                    chunk = f"chunk-{i}\n".encode()
+                    self.wfile.write(f"{len(chunk):X}\r\n".encode())
+                    self.wfile.write(chunk + b"\r\n")
+                    self.wfile.flush()
+                    time.sleep(0.1)
+
+                self.wfile.write(b"0\r\n\r\n")
+                self.wfile.flush()
+
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+        elif path.startswith("/silent"):
+            self.close_connection = True
+            threading.Event().wait(2)
         else:
             self._send(404)
 
