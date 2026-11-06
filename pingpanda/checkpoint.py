@@ -55,6 +55,7 @@ def save_checkpoint(
             "redirect_to": result.redirect_to,
             "ip_port": result.ip_port,
             "redirect_ip_port": result.redirect_ip_port,
+            "attempts": result.attempts,
         }
 
     payload = {
@@ -128,6 +129,7 @@ def load_checkpoint(
             result_url = item["url"]
             result_id = item["url_id"]
             ip_port = item["ip_port"]
+            attempts = item.get("attempts", 1)
 
             if (
                 isinstance(result_id, bool)
@@ -144,6 +146,9 @@ def load_checkpoint(
                 or elapsed < 0
                 or (redirect_to is not None and not isinstance(redirect_to, str))
                 or not isinstance(ip_port, str)
+                or isinstance(attempts, bool)
+                or not isinstance(attempts, int)
+                or attempts < 1
                 or (
                     redirect_ip_port is not None
                     and not isinstance(redirect_ip_port, str)
@@ -159,6 +164,7 @@ def load_checkpoint(
                 redirect_to=redirect_to,
                 ip_port=ip_port,
                 redirect_ip_port=redirect_ip_port,
+                attempts=attempts,
             )
         except (KeyError, TypeError, ValueError, OverflowError) as exc:
             raise CheckpointError(

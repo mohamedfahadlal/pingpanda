@@ -126,6 +126,17 @@ Check a list of URLs:
 python url-status-checker.py -l urls.txt
 ```
 
+Retry transient failures with exponential backoff:
+
+```bash
+python url-status-checker.py -l urls.txt --retries 3 --retry-delay 1
+```
+
+The command allows three retries after the initial request. Retry delays are
+approximately 1, 2, and 4 seconds. Connection failures, timeouts, and
+transient HTTP responses (`408`, `429`, `502`, `503`, and `504`) are retried;
+permanent responses such as `404` are not.
+
 Save the report to a file:
 
 ```bash
@@ -170,6 +181,9 @@ https://python.org
 | `-o`, `--output` | Save the report to a file |
 | `--checkpoint PATH` | Choose where scan progress is saved (default: `.pingpanda-checkpoint.json`) |
 | `--resume` | Resume from the selected checkpoint, skipping completed URLs |
+| `--retries N` | Retry transient failures up to `N` times after the initial request (default: `0`) |
+| `--retry-delay SECONDS` | Initial delay before retrying; each later delay doubles (default: `1`) |
+| `--max-concurrent N` | Maximum number of URLs checked concurrently (default: `10`) |
 | `-v`, `--version` | Show version information |
 | `-h`, `--help` | Show the help text |
 

@@ -16,6 +16,7 @@ class UrlResult:
     redirect_to: str | None
     ip_port: str
     redirect_ip_port: str | None
+    attempts: int = 1
 
     @property
     def status_label(self) -> str:

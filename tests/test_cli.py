@@ -96,7 +96,28 @@ def test_max_concurrent_has_default(checker):
     assert args.max_concurrent == 10
 
 
+def test_retry_arguments_are_parsed(checker):
+    args = checker.parse_arguments(["--retries", "3", "--retry-delay", "1.5"])
+
+    assert args.retries == 3
+    assert args.retry_delay == 1.5
+
+
+def test_retries_default_to_disabled(checker):
+    args = checker.parse_arguments([])
+
+    assert args.retries == 0
+    assert args.retry_delay == 1.0
+
+
 @pytest.mark.parametrize("value", ["0", "-1", "abc"])
 def test_invalid_max_concurrent_is_rejected(checker, value):
     with pytest.raises(SystemExit):
         checker.parse_arguments(["--max-concurrent", value])
+
+
+@pytest.mark.parametrize("option", ["--retries", "--retry-delay"])
+@pytest.mark.parametrize("value", ["-1", "abc"])
+def test_invalid_retry_options_are_rejected(checker, option, value):
+    with pytest.raises(SystemExit):
+        checker.parse_arguments([option, value])

@@ -27,6 +27,16 @@ def test_checkpoint_round_trip_preserves_completed_results(tmp_path, make_result
     assert restored[1] == results[1]
 
 
+def test_checkpoint_round_trip_preserves_attempt_count(tmp_path, make_result):
+    urls = ["https://example.com"]
+    result = make_result(url=urls[0], attempts=3)
+    path = tmp_path / "scan.json"
+
+    save_checkpoint(path, urls, {0: result})
+
+    assert load_checkpoint(path, urls)[0].attempts == 3
+
+
 def test_checkpoint_rejects_changed_or_reordered_input(tmp_path, make_result):
     urls = ["https://first.test", "https://second.test"]
     path = tmp_path / "scan.json"

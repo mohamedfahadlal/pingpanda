@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 
 from pingpanda.checkpoint import CheckpointError, load_checkpoint, save_checkpoint
 from pingpanda.constants import BANNER
-from pingpanda.network import check_all, DEFAULT_MAX_CONCURRENT
+from pingpanda.network import (
+    check_all,
+    DEFAULT_MAX_CONCURRENT,
+    DEFAULT_RETRIES,
+    DEFAULT_RETRY_DELAY_SECONDS,
+)
 from pingpanda.report import classify_results, render_report, save_report
 
 DEFAULT_CHECKPOINT = ".pingpanda-checkpoint.json"
@@ -34,6 +40,30 @@ def positive_int(value):
 
     return number
 
+
+def non_negative_int(value):
+    try:
+        number = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be an integer")
+
+    if number < 0:
+        raise argparse.ArgumentTypeError("must not be negative")
+
+    return number
+
+
+def non_negative_float(value):
+    try:
+        number = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be a number")
+
+    if number < 0 or not math.isfinite(number):
+        raise argparse.ArgumentTypeError("must be a finite, non-negative number")
+
+    return number
+
 def parse_arguments(argv=None):
     parser = argparse.ArgumentParser(description="URL Status Checker")
     parser.add_argument("-d", "--domain", help="Single domain/URL to check")
@@ -44,6 +74,18 @@ def parse_arguments(argv=None):
         default=DEFAULT_CHECKPOINT,
         metavar="PATH",
         help=f"Checkpoint file (default: {DEFAULT_CHECKPOINT})",
+    )
+    parser.add_argument(
+        "--retries",
+        type=non_negative_int,
+        default=DEFAULT_RETRIES,
+        help="Retries after transient failures (default: 0)",
+    )
+    parser.add_argument(
+        "--retry-delay",
+        type=non_negative_float,
+        default=DEFAULT_RETRY_DELAY_SECONDS,
+        help="Initial retry delay in seconds; delays double after each retry",
     )
     parser.add_argument(
         "--resume",
@@ -110,6 +152,8 @@ async def main(argv=None):
             initial_results=initial_results,
             on_result=persist_progress,
             max_concurrent=args.max_concurrent,
+            max_retries=args.retries,
+            retry_delay=args.retry_delay,
         )
         # Also create a checkpoint for an empty or already-complete resumed scan.
         save_checkpoint(args.checkpoint, urls, results)

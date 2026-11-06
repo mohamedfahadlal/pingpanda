@@ -50,6 +50,59 @@ async def test_connection_error_is_reported_as_invalid(checker):
     assert result.status_label == "Invalid"
 
 
+async def test_transient_http_failure_is_retried_with_exponential_backoff(
+    checker, fake_dns, monkeypatch
+):
+    responses = iter([httpx.Response(503), httpx.Response(503), httpx.Response(200)])
+    delays = []
+
+    async def fake_sleep(delay):
+        delays.append(delay)
+
+    monkeypatch.setattr(checker.network.asyncio, "sleep", fake_sleep)
+
+    def handler(request):
+        return next(responses)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as session:
+        result = await checker.check_url_status(
+            session,
+            0,
+            "https://example.com",
+            max_retries=2,
+            retry_delay=0.5,
+        )
+
+    assert result.status == 200
+    assert result.attempts == 3
+    assert delays == [0.5, 1.0]
+
+
+async def test_permanent_http_failure_is_not_retried(
+    checker, fake_dns, monkeypatch
+):
+    requests = 0
+
+    async def unexpected_sleep(delay):
+        raise AssertionError("Permanent failures must not be retried.")
+
+    monkeypatch.setattr(checker.network.asyncio, "sleep", unexpected_sleep)
+
+    def handler(request):
+        nonlocal requests
+        requests += 1
+        return httpx.Response(404)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as session:
+        result = await checker.check_url_status(
+            session, 0, "https://example.com", max_retries=3
+        )
+
+    assert result.status == 404
+    assert result.attempts == 1
+    assert requests == 1
+
+
 async def test_url_without_scheme_is_checked_over_https(checker, fake_dns):
     seen = {}
 

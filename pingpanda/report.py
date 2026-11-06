@@ -28,7 +28,8 @@ def format_result_line(result):
         else "[Redirect: None]"
     )
     return (
-        f"[Status: {result.status_label}] [Time: {result.elapsed:.3f} ms] "
+        f"[Status: {result.status_label}] [Attempts: {result.attempts}] "
+        f"[Time: {result.elapsed:.3f} ms] "
         f"[IP: {result.ip_port}] {result.url} {redirect_str}"
     )
 
